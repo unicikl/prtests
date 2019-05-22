@@ -35,8 +35,8 @@ func main() {
 		}()
 	}
 
-	// Wait a second to allow some ops to accumulate.
-	time.Sleep(time.Second*2)
+	// Wait two seconds to allow some ops to accumulate.
+	time.Sleep(time.Second * 2)
 
 	// In order to safely use the counter while it's still
 	// being updated by other goroutines, we extract a
