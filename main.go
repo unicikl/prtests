@@ -1,31 +1,49 @@
-// [Timers](timers) are for when you want to do
-// something once in the future - _tickers_ are for when
-// you want to do something repeatedly at regular
-// intervals. Here's an example of a ticker that ticks
-// periodically until we stop it.
+// The primary mechanism for managing state in Go is
+// communication over channels. We saw this for example
+// with [worker pools](worker-pools). There are a few other
+// options for managing state though. Here we'll
+// look at using the `sync/atomic` package for _atomic
+// counters_ accessed by multiple goroutines.
 
 package main
 
-import "time"
 import "fmt"
+import "time"
+import "sync/atomic"
 
 func main() {
 
-    // Tickers use a similar mechanism to timers: a
-    // channel that is sent values. Here we'll use the
-    // `range` builtin on the channel to iterate over
-    // the values as they arrive every 500ms.
-    ticker := time.NewTicker(500 * time.Millisecond)
-    go func() {
-        for t := range ticker.C {
-            fmt.Println("Tick at", t)
-        }
-    }()
+	// We'll use an unsigned integer to represent our
+	// (always-positive) counter.
+	var ops uint64
 
-    // Tickers can be stopped like timers. Once a ticker
-    // is stopped it won't receive any more values on its
-    // channel. We'll stop ours after 1600ms.
-    time.Sleep(1600 * time.Millisecond)
-    ticker.Stop()
-    fmt.Println("Ticker stopped")
+	// To simulate concurrent updates, we'll start 50
+	// goroutines that each increment the counter about
+	// once a millisecond.
+	for i := 0; i < 50; i++ {
+		go func() {
+			for {
+				// To atomically increment the counter we
+				// use `AddUint64`, giving it the memory
+				// address of our `ops` counter with the
+				// `&` syntax.
+				atomic.AddUint64(&ops, 1)
+
+				// Wait a bit between increments.
+				time.Sleep(time.Millisecond)
+			}
+		}()
+	}
+
+	// Wait two seconds to allow some ops to accumulate.
+	time.Sleep(time.Second * 2)
+
+	// In order to safely use the counter while it's still
+	// being updated by other goroutines, we extract a
+	// copy of the current value into `opsFinal` via
+	// `LoadUint64`. As above we need to give this
+	// function the memory address `&ops` from which to
+	// fetch the value.
+	opsFinal := atomic.LoadUint64(&ops)
+	fmt.Println("ops:", opsFinal)
 }
